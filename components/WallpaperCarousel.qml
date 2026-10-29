@@ -125,7 +125,7 @@ Item {
                     radius: card.radius
                     color: "transparent"
                     border.color: wallpaperDelegate.selected ? controller.selectedBorderColor : controller.unselectedBorderColor
-                    border.width: wallpaperDelegate.selected ? 3 : 1
+                    border.width: controller.uiBorderWidth * (wallpaperDelegate.selected ? 1.5 : 0.5)
                 }
 
                 Item {

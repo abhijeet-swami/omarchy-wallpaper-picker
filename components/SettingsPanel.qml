@@ -14,6 +14,17 @@ ColumnLayout {
     spacing: 4
     focus: true
 
+    function applyOnEnter(event) {
+        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                && !controller.settingsApplying) {
+            event.accepted = true
+            controller.applyThemeSettings()
+        }
+    }
+
+    Keys.priority: Keys.BeforeItem
+    Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
+
     RowLayout {
         Layout.fillWidth: true
         Text {
@@ -41,6 +52,8 @@ ColumnLayout {
             palette.highlight: controller.accentColor
             palette.text: controller.textColor
             onToggled: controller.setThemeSetting("blurEnabled", checked)
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
         }
         CheckBox {
             text: "Shadow"
@@ -48,6 +61,8 @@ ColumnLayout {
             palette.highlight: controller.accentColor
             palette.text: controller.textColor
             onToggled: controller.setThemeSetting("shadowEnabled", checked)
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
         }
         CheckBox {
             text: "Terminal active/inactive same"
@@ -55,6 +70,8 @@ ColumnLayout {
             palette.highlight: controller.accentColor
             palette.text: controller.textColor
             onToggled: controller.setThemeSetting("terminalSameOpacity", checked)
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
         }
     }
 
@@ -69,6 +86,8 @@ ColumnLayout {
             palette.highlight: controller.accentColor
             palette.text: controller.textColor
             onActivated: controller.setThemeSetting("animationPreset", controller.animationPresetIds[index])
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
         }
         Item { Layout.fillWidth: true }
     }
@@ -97,6 +116,8 @@ ColumnLayout {
                 value: controller.themeSettings.blurSize
                 enabled: controller.themeSettings.blurEnabled
                 onMoved: controller.setThemeSetting("blurSize", Math.round(value))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
             }
         }
         ColumnLayout {
@@ -116,6 +137,8 @@ ColumnLayout {
                 value: controller.themeSettings.blurPasses
                 enabled: controller.themeSettings.blurEnabled
                 onMoved: controller.setThemeSetting("blurPasses", Math.round(value))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
             }
         }
         ColumnLayout {
@@ -134,6 +157,26 @@ ColumnLayout {
                 from: 0; to: 40; stepSize: 1
                 value: controller.themeSettings.rounding
                 onMoved: controller.setThemeSetting("rounding", Math.round(value))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
+            }
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 0
+            RowLayout {
+                Layout.fillWidth: true
+                Text { text: "BORDER WIDTH"; color: controller.mutedColor; font.pixelSize: 10 }
+                Item { Layout.fillWidth: true }
+                Text { text: String(controller.themeSettings.borderWidth) + " px"; color: controller.textColor; font.pixelSize: 10 }
+            }
+            Slider {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 22
+                palette.highlight: controller.accentColor
+                from: 0; to: 10; stepSize: 1
+                value: controller.themeSettings.borderWidth
+                onMoved: controller.setThemeSetting("borderWidth", Math.round(value))
             }
         }
         ColumnLayout {
@@ -153,6 +196,8 @@ ColumnLayout {
                 value: controller.themeSettings.shadowRange
                 enabled: controller.themeSettings.shadowEnabled
                 onMoved: controller.setThemeSetting("shadowRange", Math.round(value))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
             }
         }
         ColumnLayout {
@@ -171,6 +216,8 @@ ColumnLayout {
                 from: 0.65; to: 1.0; stepSize: 0.01
                 value: controller.themeSettings.inactiveOpacity
                 onMoved: controller.setThemeSetting("inactiveOpacity", Number(value.toFixed(2)))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
             }
         }
         ColumnLayout {
@@ -189,6 +236,8 @@ ColumnLayout {
                 from: 0.65; to: 1.0; stepSize: 0.01
                 value: controller.themeSettings.terminalOpacity
                 onMoved: controller.setThemeSetting("terminalOpacity", Number(value.toFixed(2)))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
             }
         }
         ColumnLayout {
@@ -207,6 +256,8 @@ ColumnLayout {
                 from: 0.1; to: 1.0; stepSize: 0.01
                 value: controller.themeSettings.shellOpacity
                 onMoved: controller.setThemeSetting("shellOpacity", Number(value.toFixed(2)))
+                Keys.priority: Keys.BeforeItem
+                Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
             }
         }
     }
@@ -221,6 +272,8 @@ ColumnLayout {
             palette.buttonText: controller.textColor
             palette.highlight: controller.accentColor
             onClicked: controller.resetThemeSettings()
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
         }
         Button {
             text: controller.settingsApplying ? "Applying…" : "Apply"
@@ -229,6 +282,8 @@ ColumnLayout {
             palette.buttonText: controller.dockColor
             palette.highlight: controller.accentColor
             onClicked: controller.applyThemeSettings()
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) { settingsPanel.applyOnEnter(event) }
         }
     }
 }

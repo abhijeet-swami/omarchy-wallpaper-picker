@@ -15,7 +15,7 @@ Rectangle {
     radius: Math.min(controller.uiCornerRadius, height / 2)
     color: Qt.darker(controller.surfaceColor, 1.08)
     border.color: controller.searchMode || controller.pageMode ? controller.accentColor : controller.borderColor
-    border.width: 1
+    border.width: controller.uiBorderWidth
 
     RowLayout {
         anchors.fill: parent

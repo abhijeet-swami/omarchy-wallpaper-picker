@@ -35,6 +35,7 @@ Item {
     property var localThumbnailAttempts: ({})
     property var activeLocalThumbPaths: []
     property int uiCornerRadius: 0
+    property real uiBorderWidth: 2
     property int bottomOffset: 0
     property bool uiBackgroundBlur: false
     property var themeSettings: ({
@@ -42,6 +43,7 @@ Item {
         blurSize: 8,
         blurPasses: 1,
         rounding: 0,
+        borderWidth: 2,
         shadowEnabled: false,
         shadowRange: 4,
         inactiveOpacity: 1.0,
@@ -56,6 +58,7 @@ Item {
         blurSize: 8,
         blurPasses: 1,
         rounding: 0,
+        borderWidth: 2,
         shadowEnabled: false,
         shadowRange: 4,
         inactiveOpacity: 1.0,
@@ -88,7 +91,10 @@ Item {
     readonly property color selectedBorderColor: Commons.Color.imagePicker.selectedBorder
     readonly property color unselectedBorderColor: Commons.Color.imagePicker.unselectedBorder
 
-    onThemeSettingsChanged: root.uiCornerRadius = Math.max(0, Number(root.themeSettings.rounding || 0))
+    onThemeSettingsChanged: {
+        root.uiCornerRadius = Math.max(0, Number(root.themeSettings.rounding || 0))
+        root.uiBorderWidth = Math.max(0, Number(root.themeSettings.borderWidth !== undefined ? root.themeSettings.borderWidth : 2))
+    }
 
     onSelectedIndexChanged: {
         if (root.localMode)
@@ -739,7 +745,7 @@ Item {
                 radius: Math.min(root.uiCornerRadius, height / 2)
                 color: root.surfaceColor
                 border.color: root.borderColor
-                border.width: 1
+                border.width: root.uiBorderWidth
                 clip: true
 
                 ColumnLayout {
