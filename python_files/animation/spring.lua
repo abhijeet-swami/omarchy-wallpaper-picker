@@ -1,5 +1,6 @@
 -- Spring: bouncy window pop with a pronounced sliding workspace transition.
-hl.curve("pickerSpring", { type = "spring", mass = 1.0, stiffness = 170.0, damping = 0.72 })
+-- Hyprland 0.56.x calls this property `dampening` (not `damping`).
+hl.curve("pickerSpring", { type = "spring", mass = 1.0, stiffness = 170.0, dampening = 18.0 })
 hl.animation({ leaf = "global", enabled = true, speed = 8, spring = "pickerSpring" })
 hl.animation({ leaf = "windows", enabled = true, speed = 7, spring = "pickerSpring", style = "popin 90%" })
 hl.animation({ leaf = "windowsIn", enabled = true, speed = 7, spring = "pickerSpring", style = "popin 90%" })

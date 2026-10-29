@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "abhijeet.wallpaper-picker",
   "name": "Wallpaper Picker",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "Abhijeet",
   "description": "Browse Wallhaven and local wallpapers, then apply them as Omarchy themes.",
   "kinds": ["overlay"],
