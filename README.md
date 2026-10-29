@@ -56,6 +56,8 @@ Press **Ctrl+S** in the picker to adjust the appearance used by the generated Om
 
 The terminal opacity slider sets the inactive opacity for Kitty, Foot, and Ghostty. With **Terminal active/inactive same** enabled, the slider applies to both states; with it disabled, active terminals stay fully opaque.
 
+The spring preset uses the `dampening` property expected by Hyprland 0.56.x.
+
 Press **Apply** to save the values in `~/.config/omarchy/wallhaven-picker-state.json`. If the generated Wallpaper Picker theme is active, it is applied immediately; otherwise the values are used the next time you apply a wallpaper. **Reset to defaults** removes the generated Hyprland and shell overrides so Omarchy's defaults take effect, and keeps that choice for future wallpapers.
 
 The theme includes a Wallust-generated `colors.toml`, `hyprland.lua` for compositor blur/rounding/shadows, and small `shell.<section>.toml` overlays so Omarchy surfaces can show the blur while keeping its normal shell defaults. Other files from `blur-theme` (terminal and editor configs, for example) are optional and are not needed for wallpaper theming.
