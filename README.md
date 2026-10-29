@@ -16,6 +16,12 @@ Then install the plugin:
 omarchy plugin add https://github.com/abhijeet-swami/omarchy-wallpaper-picker.git --enable
 ```
 
+To remove it later:
+
+```bash
+omarchy plugin remove abhijeet.wallpaper-picker
+```
+
 Open it from a terminal:
 
 ```bash
