@@ -7,7 +7,7 @@ Browse Wallhaven or wallpapers in `~/Wallpapers`, preview them in a Quickshell p
 Install Wallust:
 
 ```bash
-yay -S wallust-bin
+yay -S wallust
 ```
 
 Then install the plugin:
