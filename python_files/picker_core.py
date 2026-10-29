@@ -41,7 +41,7 @@ THEME_SETTINGS_DEFAULTS = {
     "terminalOpacity": 1.0,
     "terminalSameOpacity": False,
     "shellOpacity": 1.0,
-    "animationPreset": "soft-pop",
+    "animationPreset": "fluid",
     "useThemeOverrides": False,
 }
 
@@ -115,7 +115,7 @@ def normalize_theme_settings(settings, defaults=None):
     normalized["useThemeOverrides"] = normalized["useThemeOverrides"] is True
     animation_preset = settings.get("animationPreset", defaults["animationPreset"])
     normalized["animationPreset"] = animation_preset if animation_preset in {
-        "soft-pop", "slide", "gnomed", "spring", "none"
+        "fast", "fluid", "smooth", "vertical", "none"
     } else defaults["animationPreset"]
     return normalized
 

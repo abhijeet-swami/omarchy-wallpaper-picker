@@ -50,7 +50,7 @@ Item {
         terminalOpacity: 1.0,
         terminalSameOpacity: false,
         shellOpacity: 1.0,
-        animationPreset: "soft-pop",
+        animationPreset: "fluid",
         useThemeOverrides: false
     })
     readonly property var defaultThemeSettings: ({
@@ -65,11 +65,11 @@ Item {
         terminalOpacity: 1.0,
         terminalSameOpacity: false,
         shellOpacity: 1.0,
-        animationPreset: "soft-pop",
+        animationPreset: "fluid",
         useThemeOverrides: false
     })
-    readonly property var animationPresetIds: ["soft-pop", "slide", "gnomed", "spring", "none"]
-    readonly property var animationPresetNames: ["Soft pop", "Slide", "Gnomed", "Spring", "No animation"]
+    readonly property var animationPresetIds: ["fast", "fluid", "smooth", "vertical", "none"]
+    readonly property var animationPresetNames: ["Fast", "Fluid", "Smooth", "Vertical", "No animation"]
     property string settingsMessage: ""
     property string statusText: ""
     property var wallpapers: []

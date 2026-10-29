@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ANIMATION_DIR = Path(__file__).with_name("animation")
-PRESETS = {"soft-pop", "slide", "gnomed", "spring", "none"}
+PRESETS = {"fluid", "smooth", "fast", "vertical", "none"}
 
 
 def animation_config_lua(preset):
