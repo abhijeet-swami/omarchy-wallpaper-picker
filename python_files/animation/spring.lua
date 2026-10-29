@@ -1,0 +1,10 @@
+-- Spring: bouncy window pop with a pronounced sliding workspace transition.
+hl.curve("pickerSpring", { type = "spring", mass = 1.0, stiffness = 170.0, damping = 0.72 })
+hl.animation({ leaf = "global", enabled = true, speed = 8, spring = "pickerSpring" })
+hl.animation({ leaf = "windows", enabled = true, speed = 7, spring = "pickerSpring", style = "popin 90%" })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 7, spring = "pickerSpring", style = "popin 90%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 5, spring = "pickerSpring", style = "popin 90%" })
+hl.animation({ leaf = "windowsMove", enabled = true, speed = 7, spring = "pickerSpring", style = "slide" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 7, spring = "pickerSpring", style = "popin" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 5, spring = "pickerSpring", style = "popin" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 8, spring = "pickerSpring", style = "slidefade 35%" })

@@ -7,7 +7,7 @@ A small Omarchy overlay for browsing Wallhaven or wallpapers already in `~/Wallp
 Wallust is required:
 
 ```bash
-yay -S wallust-bin
+yay -S wallust
 ```
 
 Then install the plugin with Omarchy:
@@ -39,21 +39,38 @@ o.bind("SUPER + ALT + W", "Wallpaper Picker", "omarchy-shell shell summon abhije
 | Alt+Left / Alt+Right | Jump one Wallhaven results page |
 | Alt+P | Jump to a Wallhaven page number |
 | Alt+M | Change sorting |
+| Ctrl+S | Open appearance settings |
 | Esc | Close the picker |
 
 Wallhaven results continue into adjacent pages as you scroll. At the beginning and end of the result set, scrolling stops instead of wrapping. In local mode, search filters filenames. Alt+M cycles through month, year, week, and recent for an empty search; with a search, it switches between relevance and top results.
 
 ## Appearance
 
-Edit `~/.config/omarchy/plugins/abhijeet.wallpaper-picker/ui-config.json`:
+Press **Ctrl+S** in the picker to adjust the appearance used by the generated Omarchy theme:
+
+- Blur enable, size, and passes
+- Window rounding (also used by the picker), shadow range, and inactive-window opacity
+- A separate Kitty, Foot, and Ghostty opacity slider, with an option to match active and inactive opacity
+- Four distinct workspace animation styles, plus no animation
+- Omarchy shell opacity; the picker uses the same surface color and opacity as the rest of the shell
+
+The terminal opacity slider sets the inactive opacity for Kitty, Foot, and Ghostty. With **Terminal active/inactive same** enabled, the slider applies to both states; with it disabled, active terminals stay fully opaque.
+
+Press **Apply** to save the values in `~/.config/omarchy/wallhaven-picker-state.json`. If the generated Wallpaper Picker theme is active, it is applied immediately; otherwise the values are used the next time you apply a wallpaper. **Reset to defaults** removes the generated Hyprland and shell overrides so Omarchy's defaults take effect, and keeps that choice for future wallpapers.
+
+The theme includes a Wallust-generated `colors.toml`, `hyprland.lua` for compositor blur/rounding/shadows, and small `shell.<section>.toml` overlays so Omarchy surfaces can show the blur while keeping its normal shell defaults. Other files from `blur-theme` (terminal and editor configs, for example) are optional and are not needed for wallpaper theming.
+
+## Source layout
+
+`WallpaperPicker.qml` owns picker state and key handling. The UI is split into `components/LocalWallpaperGallery.qml`, `components/WallhavenGallery.qml`, `components/WallpaperCarousel.qml`, `components/SettingsPanel.qml`, and `components/SearchBar.qml`. The root `wallpaper.py` is the stable command entry point; `python_files/picker_core.py` handles the API, state, cache, Wallust, and theme work, while `python_files/animation/` contains the standalone Hyprland Lua presets copied into the generated `hyprland.lua`.
+
+The picker's dock-specific settings remain in `~/.config/omarchy/plugins/abhijeet.wallpaper-picker/ui-config.json`:
 
 ```json
 {
-  "cornerRadius": 14,
   "bottomOffset": 0,
-  "backgroundOpacity": 1.0,
   "backgroundBlur": false
 }
 ```
 
-`cornerRadius` sets the dock, search bar, and thumbnail rounding; use `0` for square corners. `bottomOffset` moves the dock up from the screen edge in pixels. `backgroundOpacity` ranges from `0.0` (transparent) to `1.0` (opaque). Set `backgroundBlur` to `true` to request blur behind the dock. Hyprland's compositor blur must also be enabled for that setting to take effect. Settings reload when the file changes.
+`bottomOffset` moves the dock up from the screen edge in pixels. The window-rounding slider in Ctrl+S also controls the picker dock, search bar, and thumbnails. Set `backgroundBlur` to `true` to request blur behind the dock. Hyprland's compositor blur must also be enabled for that setting to take effect. Settings reload when the file changes.

@@ -1,0 +1,10 @@
+-- Gnomed: sharp window minimize effect; workspaces fade between positions.
+hl.curve("pickerEase", { type = "bezier", points = { { 0.16, 1 }, { 0.3, 1 } } })
+hl.animation({ leaf = "global", enabled = true, speed = 6, bezier = "pickerEase" })
+hl.animation({ leaf = "windows", enabled = true, speed = 4.5, bezier = "pickerEase", style = "gnomed" })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 4.5, bezier = "pickerEase", style = "gnomed" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 3, bezier = "pickerEase", style = "gnomed" })
+hl.animation({ leaf = "windowsMove", enabled = true, speed = 4.5, bezier = "pickerEase", style = "slide" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 4.5, bezier = "pickerEase", style = "fade" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 3, bezier = "pickerEase", style = "fade" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 6, bezier = "pickerEase", style = "fade" })

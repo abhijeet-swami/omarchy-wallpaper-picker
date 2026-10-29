@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
+import "components" as PickerComponents
 
 Item {
     id: root
@@ -20,6 +21,7 @@ Item {
     property bool localMode: false
     property bool searchMode: false
     property bool pageMode: false
+    property bool settingsMode: false
     property int page: 1
     property int lastPage: 1
     property int selectedIndex: 0
@@ -32,26 +34,61 @@ Item {
     property string pendingSortModeWrite: ""
     property var localThumbnailAttempts: ({})
     property var activeLocalThumbPaths: []
-    property int uiCornerRadius: 14
+    property int uiCornerRadius: 0
     property int bottomOffset: 0
-    property real uiBackgroundOpacity: 1.0
     property bool uiBackgroundBlur: false
+    property var themeSettings: ({
+        blurEnabled: false,
+        blurSize: 8,
+        blurPasses: 1,
+        rounding: 0,
+        shadowEnabled: false,
+        shadowRange: 4,
+        inactiveOpacity: 1.0,
+        terminalOpacity: 1.0,
+        terminalSameOpacity: false,
+        shellOpacity: 1.0,
+        animationPreset: "soft-pop",
+        useThemeOverrides: false
+    })
+    readonly property var defaultThemeSettings: ({
+        blurEnabled: false,
+        blurSize: 8,
+        blurPasses: 1,
+        rounding: 0,
+        shadowEnabled: false,
+        shadowRange: 4,
+        inactiveOpacity: 1.0,
+        terminalOpacity: 1.0,
+        terminalSameOpacity: false,
+        shellOpacity: 1.0,
+        animationPreset: "soft-pop",
+        useThemeOverrides: false
+    })
+    readonly property var animationPresetIds: ["soft-pop", "slide", "gnomed", "spring", "none"]
+    readonly property var animationPresetNames: ["Soft pop", "Slide", "Gnomed", "Spring", "No animation"]
+    property string settingsMessage: ""
     property string statusText: ""
     property var wallpapers: []
     property var wallpaperPages: ({})
     property var wallpaperPageByIndex: []
     property int pendingBoundaryDirection: 0
     property int sessionSerial: 0
+    readonly property bool prefetching: prefetcher.running
+    readonly property var helperCommand: helper.command
+    readonly property bool settingsApplying: settingsApplier.running
 
     readonly property color scrimColor: Commons.Color.imagePicker.scrim
     readonly property color dockColor: Commons.Color.menu.background
-    readonly property color surfaceColor: Qt.rgba(root.dockColor.r, root.dockColor.g, root.dockColor.b, root.dockColor.a * root.uiBackgroundOpacity)
+    readonly property color surfaceColor: root.dockColor
     readonly property color textColor: Commons.Color.menu.text
     readonly property color borderColor: Commons.Color.menu.border
     readonly property color accentColor: Commons.Color.accent
     readonly property color mutedColor: Commons.Color.muted
     readonly property color selectedBorderColor: Commons.Color.imagePicker.selectedBorder
     readonly property color unselectedBorderColor: Commons.Color.imagePicker.unselectedBorder
+
+    onThemeSettingsChanged: root.uiCornerRadius = Math.max(0, Number(root.themeSettings.rounding || 0))
 
     onSelectedIndexChanged: {
         if (root.localMode)
@@ -60,6 +97,11 @@ Item {
             root.syncCurrentPage()
             Qt.callLater(function() { root.prefetchNearEdge() })
         }
+    }
+
+    function focusGallery() {
+        if (root.localMode) localGallery.forceActiveFocus()
+        else wallhavenGallery.forceActiveFocus()
     }
 
     function open(payloadJson) {
@@ -78,13 +120,14 @@ Item {
         root.pendingBoundaryDirection = 0
         root.searchMode = false
         root.pageMode = false
-        searchField.text = ""
+        root.settingsMode = false
+        pickerSearch.searchInput.text = ""
         if (!root.settingsLoaded) uiSettings.reload()
         root.sortModeLoaded = false
         root.pendingInitialLoad = true
         stateReader.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "load-state"]
         stateReader.running = true
-        Qt.callLater(function() { carousel.forceActiveFocus() })
+        Qt.callLater(function() { root.focusGallery() })
     }
 
     function close() {
@@ -119,7 +162,7 @@ Item {
             root.wallpaperPageByIndex = []
             root.statusText = ""
             root.loadPage(1)
-            carousel.forceActiveFocus()
+            root.focusGallery()
             return
         }
         var modes = ["month", "year", "week", "recent"]
@@ -135,18 +178,14 @@ Item {
         root.wallpaperPageByIndex = []
         root.statusText = ""
         root.loadPage(1)
-        carousel.forceActiveFocus()
+        root.focusGallery()
     }
 
     function loadUiSettings(raw) {
         try {
             var settings = JSON.parse(raw || "{}")
-            if (settings.cornerRadius !== undefined && isFinite(Number(settings.cornerRadius)))
-                root.uiCornerRadius = Math.max(0, Number(settings.cornerRadius))
             if (settings.bottomOffset !== undefined && isFinite(Number(settings.bottomOffset)))
                 root.bottomOffset = Math.max(0, Number(settings.bottomOffset))
-            if (settings.backgroundOpacity !== undefined && isFinite(Number(settings.backgroundOpacity)))
-                root.uiBackgroundOpacity = Math.max(0, Math.min(1, Number(settings.backgroundOpacity)))
             if (settings.backgroundBlur !== undefined)
                 root.uiBackgroundBlur = settings.backgroundBlur === true
         } catch (error) { console.warn("Invalid Wallhaven UI settings:", error) }
@@ -170,6 +209,38 @@ Item {
         }
         stateWriter.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "save-state", root.sortMode]
         stateWriter.running = true
+    }
+
+    function setThemeSetting(name, value) {
+        var updated = ({})
+        for (var key in root.themeSettings) updated[key] = root.themeSettings[key]
+        updated[name] = value
+        updated.useThemeOverrides = true
+        root.themeSettings = updated
+        if (name === "blurEnabled") root.uiBackgroundBlur = value
+        if (name === "rounding") root.uiCornerRadius = value
+        root.settingsMessage = ""
+    }
+
+    function applyThemeSettings() {
+        var updated = ({})
+        for (var key in root.themeSettings) updated[key] = root.themeSettings[key]
+        updated.useThemeOverrides = true
+        root.themeSettings = updated
+        settingsApplier.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "apply-settings", JSON.stringify(updated)]
+        settingsApplier.running = true
+        root.settingsMessage = "Saving settings…"
+    }
+
+    function resetThemeSettings() {
+        var reset = ({})
+        for (var key in root.defaultThemeSettings) reset[key] = root.defaultThemeSettings[key]
+        root.themeSettings = reset
+        root.uiCornerRadius = reset.rounding
+        root.uiBackgroundBlur = reset.blurEnabled
+        settingsApplier.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "reset-settings"]
+        settingsApplier.running = true
+        root.settingsMessage = "Restoring Omarchy defaults…"
     }
 
     function runHelper(action, args) {
@@ -334,7 +405,7 @@ Item {
         if (root.busy || root.localMode === useLocal) return
         root.localMode = useLocal
         root.query = ""
-        searchField.text = ""
+        pickerSearch.searchInput.text = ""
         root.page = 1
         root.lastPage = 1
         root.selectedIndex = 0
@@ -344,14 +415,14 @@ Item {
         root.statusText = ""
         if (!root.localMode && !root.sortModeLoaded) {
             root.pendingInitialLoad = true
-            carousel.forceActiveFocus()
+            root.focusGallery()
             return
         }
         if (root.localMode)
             root.loadLocalWallpapers()
         else
             root.loadPage(1)
-        carousel.forceActiveFocus()
+        root.focusGallery()
     }
 
     function imageSource(path) {
@@ -420,6 +491,11 @@ Item {
                     var response = JSON.parse(stateReaderOutput.text)
                     if (response.ok && ["month", "year", "week", "recent"].indexOf(response.result.sortMode) >= 0)
                         root.sortMode = response.result.sortMode
+                    if (response.ok && response.result.themeSettings)
+                        root.themeSettings = response.result.themeSettings
+                    if (response.ok && response.result.themeSettings) {
+                        root.uiBackgroundBlur = response.result.themeSettings.blurEnabled
+                    }
                     else if (!response.ok)
                         console.warn("Could not load Wallhaven sort mode:", response.error)
                 } catch (error) {
@@ -445,6 +521,32 @@ Item {
                 root.pendingSortModeWrite = ""
                 stateWriter.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "save-state", mode]
                 stateWriter.running = true
+            }
+        }
+    }
+
+    Process {
+        id: settingsApplier
+        stdout: StdioCollector { id: settingsApplyOutput }
+        stderr: StdioCollector { id: settingsApplyError }
+        onExited: function(exitCode) {
+            if (exitCode !== 0) {
+                root.settingsMessage = settingsApplyError.text || settingsApplyOutput.text || "Could not save settings"
+                return
+            }
+            try {
+                var response = JSON.parse(settingsApplyOutput.text)
+                if (!response.ok) throw new Error(response.error || "Could not save settings")
+                if (response.result.reset)
+                    root.settingsMessage = response.result.applied
+                        ? "Omarchy defaults restored; theme styling removed"
+                        : "Omarchy defaults saved for the next wallpaper"
+                else
+                    root.settingsMessage = response.result.applied
+                        ? "Settings saved and applied to the active theme"
+                        : "Settings saved for the next wallpaper"
+            } catch (error) {
+                root.settingsMessage = String(error)
             }
         }
     }
@@ -576,7 +678,7 @@ Item {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         BackgroundEffect.blurRegion: root.uiBackgroundBlur ? dockBlurRegion : null
         exclusionMode: ExclusionMode.Ignore
-        onVisibleChanged: if (visible) Qt.callLater(function() { carousel.forceActiveFocus() })
+        onVisibleChanged: if (visible) Qt.callLater(function() { root.focusGallery() })
 
         Region {
             id: dockBlurRegion
@@ -585,6 +687,18 @@ Item {
         }
 
         Shortcut { sequence: "Escape"; onActivated: root.dismiss() }
+        Shortcut {
+            sequence: "Ctrl+S"
+            enabled: !root.busy
+            onActivated: {
+                root.settingsMode = !root.settingsMode
+                root.searchMode = false
+                root.pageMode = false
+                root.settingsMessage = ""
+                if (root.settingsMode) Qt.callLater(function() { settingsPanelComponent.forceActiveFocus() })
+                else Qt.callLater(function() { root.focusGallery() })
+            }
+        }
         Shortcut { sequence: "Alt+Left"; enabled: !root.pageMode && !root.localMode; onActivated: root.changePage(root.page - 1) }
         Shortcut { sequence: "Alt+Right"; enabled: !root.pageMode && !root.localMode; onActivated: root.changePage(root.page + 1) }
         Shortcut {
@@ -592,8 +706,8 @@ Item {
             enabled: !root.busy && !root.pageMode
             onActivated: {
                 root.searchMode = true
-                searchField.text = root.query
-                Qt.callLater(function() { searchField.forceActiveFocus(); searchField.selectAll() })
+                pickerSearch.searchInput.text = root.query
+                Qt.callLater(function() { pickerSearch.searchInput.forceActiveFocus(); pickerSearch.searchInput.selectAll() })
             }
         }
         Shortcut { sequence: "Alt+D"; enabled: !root.busy && !root.localMode; onActivated: root.downloadSelected() }
@@ -606,8 +720,8 @@ Item {
             onActivated: {
                 root.pageMode = true
                 root.searchMode = false
-                pageField.text = ""
-                Qt.callLater(function() { pageField.forceActiveFocus() })
+                pickerSearch.pageInput.text = ""
+                Qt.callLater(function() { pickerSearch.pageInput.forceActiveFocus() })
             }
         }
 
@@ -636,381 +750,35 @@ Item {
                     anchors.bottomMargin: 8
                     spacing: 4
 
-                    Item {
-                        id: carousel
+                    PickerComponents.LocalWallpaperGallery {
+                        id: localGallery
+                        visible: root.localMode && !root.settingsMode
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        clip: true
-                        focus: true
-                        property real itemStep: 190
-
-                        Keys.priority: Keys.BeforeItem
-                        Keys.onPressed: function(event) {
-                            if (root.searchMode || root.pageMode || root.busy) return
-                            if (event.key === Qt.Key_Left) {
-                                root.moveSelection(-1)
-                                event.accepted = true
-                            } else if (event.key === Qt.Key_Right) {
-                                root.moveSelection(1)
-                                event.accepted = true
-                            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                root.applySelected()
-                                event.accepted = true
-                            }
-                        }
-
-                        WheelHandler {
-                            target: carousel
-                            enabled: !root.localMode && !root.searchMode && !root.pageMode && !root.busy
-                            onWheel: function(event) {
-                                var delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y
-                                if (delta !== 0) {
-                                    root.moveSelection(delta < 0 ? 1 : -1)
-                                    event.accepted = true
-                                }
-                            }
-                        }
-
-                        Repeater {
-                            model: root.wallpapers
-
-                            delegate: Item {
-                                id: wallpaperDelegate
-                                required property var modelData
-                                required property int index
-                                readonly property int distance: {
-                                    var count = root.wallpapers.length
-                                    if (!count) return 0
-                                    if (!root.localMode) return index - root.selectedIndex
-                                    var forward = ((index - root.selectedIndex) % count + count) % count
-                                    return forward > count / 2 ? forward - count : forward
-                                }
-                                readonly property bool selected: distance === 0
-                                visible: Math.abs(distance) <= 4
-                                width: carousel.itemStep
-                                height: carousel.height
-                                x: carousel.width / 2 - width / 2 + distance * carousel.itemStep
-                                z: selected ? 100 : 50 - Math.abs(distance)
-
-                                Behavior on x {
-                                    NumberAnimation { duration: 360; easing.type: Easing.OutCubic }
-                                }
-
-                                Rectangle {
-                                    id: card
-                                    width: wallpaperDelegate.selected ? 224 : 176
-                                    height: wallpaperDelegate.selected ? 128 : 98
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    y: wallpaperDelegate.selected ? 1 : 29
-                                    radius: Math.min(root.uiCornerRadius, height / 2)
-                                    color: root.surfaceColor
-                                    clip: true
-                                    scale: 1
-
-                                    Behavior on width {
-                                        NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.55 }
-                                    }
-                                    Behavior on height {
-                                        NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.55 }
-                                    }
-                                    Behavior on y {
-                                        NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 0.55 }
-                                    }
-                                    Behavior on scale {
-                                        NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
-                                    }
-
-                                    Item {
-                                        id: imageLayer
-                                        anchors.fill: parent
-                                        layer.enabled: true
-                                        layer.smooth: true
-                                        layer.effect: MultiEffect {
-                                            maskEnabled: true
-                                            maskSource: roundedMask
-                                            maskThresholdMin: 0.5
-                                            maskSpreadAtMin: 0.5
-                                        }
-
-                                        Image {
-                                            anchors.fill: parent
-                                            fillMode: Image.PreserveAspectCrop
-                                            asynchronous: true
-                                            cache: true
-                                            smooth: true
-                                            mipmap: true
-                                            sourceSize.width: 448
-                                            sourceSize.height: 256
-                                            source: Math.abs(wallpaperDelegate.distance) <= 4
-                                                ? root.imageSource(wallpaperDelegate.modelData.thumb)
-                                                : ""
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: card.radius
-                                        color: "transparent"
-                                        border.color: wallpaperDelegate.selected ? root.selectedBorderColor : root.unselectedBorderColor
-                                        border.width: wallpaperDelegate.selected ? 3 : 1
-                                    }
-
-                                    Item {
-                                        id: roundedMask
-                                        width: card.width
-                                        height: card.height
-                                        visible: false
-                                        layer.enabled: true
-                                        layer.smooth: true
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: card.radius
-                                            color: "white"
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            root.selectedIndex = wallpaperDelegate.index
-                                            root.clearStatus()
-                                            carousel.forceActiveFocus()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Text {
-                            id: pageIndicator
-                            anchors.top: parent.top
-                            anchors.right: parent.right
-                            anchors.topMargin: 10
-                            anchors.rightMargin: 18
-                            z: 1000
-                            text: root.localMode
-                                ? String(root.wallpapers.length) + " WALLPAPERS"
-                                : "PAGE " + root.page + " / " + root.lastPage
-                            color: root.mutedColor
-                            font.pixelSize: 11
-                            font.family: "monospace"
-                            font.letterSpacing: 0.4
-                        }
-
-                        Item {
-                            id: loadingSpinner
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 2
-                            width: 38
-                            height: 38
-                            z: 1000
-                            visible: prefetcher.running || (root.busy && helper.command.length > 2 && ["search", "local-list", "download", "apply", "apply-local"].indexOf(helper.command[2]) >= 0)
-
-                            NumberAnimation on rotation {
-                                from: 0
-                                to: 360
-                                duration: 850
-                                loops: Animation.Infinite
-                                running: loadingSpinner.visible
-                                easing.type: Easing.Linear
-                            }
-
-                            Repeater {
-                                model: 8
-                                delegate: Rectangle {
-                                    required property int index
-                                    width: 5
-                                    height: 5
-                                    radius: 2.5
-                                    color: root.accentColor
-                                    opacity: 1 - index * 0.09
-                                    x: loadingSpinner.width / 2 - width / 2 + Math.cos(index * Math.PI / 4) * 13
-                                    y: loadingSpinner.height / 2 - height / 2 + Math.sin(index * Math.PI / 4) * 13
-                                }
-                            }
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: !root.busy && root.wallpapers.length === 0
-                            text: root.statusText || "No wallpapers found"
-                            color: root.textColor
-                            font.pixelSize: 14
-                        }
+                        controller: root
                     }
 
-                    Rectangle {
-                        id: searchBar
+                    PickerComponents.WallhavenGallery {
+                        id: wallhavenGallery
+                        visible: !root.localMode && !root.settingsMode
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        controller: root
+                    }
+
+                    PickerComponents.SettingsPanel {
+                        id: settingsPanelComponent
+                        visible: root.settingsMode
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        controller: root
+                    }
+
+                    PickerComponents.SearchBar {
+                        id: pickerSearch
                         Layout.fillWidth: true
                         Layout.preferredHeight: 48
-                        radius: Math.min(root.uiCornerRadius, height / 2)
-                        color: Qt.darker(root.surfaceColor, 1.08)
-                        border.color: root.searchMode || root.pageMode ? root.accentColor : root.borderColor
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 14
-                            anchors.rightMargin: 14
-                            spacing: 12
-
-                            Item {
-                                Layout.preferredWidth: 22
-                                Layout.preferredHeight: 22
-                                Rectangle {
-                                    x: 2; y: 1
-                                    width: 13; height: 13
-                                    radius: 7
-                                    color: "transparent"
-                                    border.width: 2
-                                    border.color: root.mutedColor
-                                }
-                                Rectangle {
-                                    x: 14; y: 14
-                                    width: 8; height: 2
-                                    radius: 1
-                                    rotation: 45
-                                    color: root.mutedColor
-                                }
-                            }
-
-                            TextField {
-                                id: searchField
-                                visible: !root.pageMode
-                                    enabled: !root.busy
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                text: root.query
-                                placeholderText: root.localMode ? "Search saved wallpapers…" : "Search Wallhaven…"
-                                color: root.textColor
-                                placeholderTextColor: root.mutedColor
-                                selectionColor: Commons.Color.lock.selection
-                                selectedTextColor: root.textColor
-                                background: Item {}
-                                font.pixelSize: 14
-                                onActiveFocusChanged: if (activeFocus) {
-                                    root.searchMode = true
-                                    root.pageMode = false
-                                    text = root.query
-                                }
-                                onAccepted: {
-                                    root.query = text.trim()
-                                    root.page = 1
-                                    root.lastPage = 1
-                                    root.selectedIndex = 0
-                                    root.wallpapers = []
-                                    root.wallpaperPages = ({})
-                                    root.wallpaperPageByIndex = []
-                                    root.pendingBoundaryDirection = 0
-                                    root.clearStatus()
-                                    root.searchMode = false
-                                    carousel.forceActiveFocus()
-                                    if (root.localMode)
-                                        root.loadLocalWallpapers()
-                                    else {
-                                        root.querySortMode = "relevance"
-                                        root.loadPage(1)
-                                    }
-                                }
-                            }
-
-                            TextField {
-                                id: pageField
-                                visible: root.pageMode
-                                    enabled: !root.busy
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                placeholderText: "Page number…"
-                                color: root.textColor
-                                placeholderTextColor: root.mutedColor
-                                selectionColor: Commons.Color.lock.selection
-                                selectedTextColor: root.textColor
-                                background: Item {}
-                                inputMethodHints: Qt.ImhDigitsOnly
-                                validator: IntValidator { bottom: 1; top: 999999 }
-                                font.pixelSize: 14
-                                onAccepted: {
-                                    var target = Number(text)
-                                    root.pageMode = false
-                                    carousel.forceActiveFocus()
-                                    root.changePage(target)
-                                    text = ""
-                                }
-                            }
-
-                            Text {
-                                visible: !root.query.trim() && !root.localMode
-                                text: root.sortLabel(root.sortMode)
-                                color: root.accentColor
-                                font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                font.letterSpacing: 0.6
-                                MouseArea {
-                                    anchors.fill: parent
-                                    enabled: !root.busy
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.cycleSortMode()
-                                }
-                            }
-                            Text {
-                                visible: root.localMode && !root.query.trim()
-                                text: "LOCAL WALLPAPERS"
-                                color: root.accentColor
-                                font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                font.letterSpacing: 0.6
-                            }
-                            Text {
-                                visible: !!root.query.trim() && !root.localMode
-                                text: root.querySortMode === "relevance" ? "RELEVANCE" : "TOP RESULTS"
-                                color: root.querySortMode === "relevance" ? root.mutedColor : root.accentColor
-                                font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                font.letterSpacing: 0.6
-                                MouseArea {
-                                    anchors.fill: parent
-                                    enabled: !root.busy
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.cycleSortMode()
-                                }
-                            }
-                            Text {
-                                visible: root.localMode && !!root.query.trim()
-                                text: "LOCAL SEARCH"
-                                color: root.mutedColor
-                                font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                font.letterSpacing: 0.6
-                            }
-
-                            Text {
-                                visible: !!root.statusText
-                                text: root.statusText
-                                color: Commons.Color.urgent
-                                font.pixelSize: 11
-                                elide: Text.ElideRight
-                                Layout.maximumWidth: 230
-                            }
-
-                            Rectangle {
-                                Layout.preferredWidth: 1
-                                Layout.preferredHeight: 20
-                                color: root.borderColor
-                                opacity: 0.6
-                            }
-
-                            Text {
-                                text: root.wallpapers.length
-                                    ? String(root.selectedIndex + 1).padStart(2, "0") + " / " + String(root.wallpapers.length).padStart(2, "0")
-                                    : (root.busy ? "…" : "00 / 00")
-                                color: root.textColor
-                                font.pixelSize: 12
-                                font.family: "monospace"
-                            }
-                        }
+                        controller: root
                     }
                 }
             }
