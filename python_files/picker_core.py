@@ -43,6 +43,7 @@ THEME_SETTINGS_DEFAULTS = {
     "sameWindowOpacity": False,
     "terminalOpacity": 1.0,
     "shellOpacity": 1.0,
+    "themeMode": "dark",
     "animationPreset": "fluid",
     "useThemeOverrides": False,
 }
@@ -90,6 +91,9 @@ def normalize_theme_settings(settings, defaults=None):
         "noiseEnabled": settings.get("noiseEnabled", defaults["noiseEnabled"]) is True,
         "shadowEnabled": settings.get("shadowEnabled", defaults["shadowEnabled"]) is True,
         "sameWindowOpacity": settings.get("sameWindowOpacity", defaults["sameWindowOpacity"]) is True,
+        "themeMode": settings.get("themeMode", defaults["themeMode"])
+        if settings.get("themeMode", defaults["themeMode"]) in {"dark", "light"}
+        else defaults["themeMode"],
         # Existing state files had no override flag. Keep those user's styles
         # until they explicitly choose Reset to defaults.
         "useThemeOverrides": settings.get("useThemeOverrides", bool(settings)),
@@ -364,7 +368,7 @@ def safe_slug(value):
     return slug or "wallhaven-theme"
 
 
-def write_terminal_theme_files(theme_dir, colors_file, opacity):
+def write_terminal_theme_files(theme_dir, colors_file, opacity, mode="dark"):
     """Generate Omarchy's per-theme terminal colors and background alpha."""
     try:
         colors_text = Path(colors_file).read_text(encoding="utf-8")
@@ -406,7 +410,7 @@ def write_terminal_theme_files(theme_dir, colors_file, opacity):
     atomic_write(Path(theme_dir) / "kitty.conf", "\n".join(kitty_lines) + "\n")
 
     foot_lines = [
-        "[colors-dark]", f"foreground={foreground.lstrip('#')}",
+        f"[colors-{mode if mode in {'dark', 'light'} else 'dark'}]", f"foreground={foreground.lstrip('#')}",
         f"background={background.lstrip('#')}", f"alpha={opacity:.2f}",
         f"selection-foreground={selection_foreground.lstrip('#')}",
         f"selection-background={selection.lstrip('#')}",
@@ -427,24 +431,50 @@ def write_terminal_theme_files(theme_dir, colors_file, opacity):
     atomic_write(Path(theme_dir) / "ghostty.conf", "\n".join(ghostty_lines) + "\n")
 
 
-def wallust_colors(image, outdir):
+def wallust_colors(image, outdir, mode="dark"):
     wallust = shutil.which("wallust")
     if not wallust:
-        raise RuntimeError("wallust is required. Install it with: yay -S wallust-bin")
+        raise RuntimeError("wallust is required. Install it with: yay -S wallust")
     cfg = Path(tempfile.mkdtemp(prefix="wallhaven-wallust-"))
     try:
         (cfg / "wallust").mkdir()
         (cfg / "wallust" / "templates").mkdir()
-        template = '''mode = "dark"
+        template = '''mode = "__WALLHAVEN_MODE__"
+{% if palette == "light" %}
+accent = "{{color4 | darken(0.3)}}"
+selection = "{{color4 | darken(0.3)}}"
+selection_foreground = "{{background}}"
+muted = "{{foreground | lighten(0.35)}}"
+{% else %}
 accent = "{{color4}}"
 selection = "{{color8}}"
 selection_foreground = "{{foreground}}"
 muted = "{{color8}}"
+{% endif %}
 background = "{{background}}"
 dark_background = "{{color0}}"
 darker_background = "{{color0}}"
 lighter_background = "{{color8}}"
 foreground = "{{foreground}}"
+{% if palette == "light" %}
+dark_foreground = "{{foreground}}"
+light_foreground = "{{foreground | lighten(0.2)}}"
+bright_foreground = "{{foreground}}"
+red = "{{color1 | darken(0.2)}}"
+yellow = "{{color3 | darken(0.2)}}"
+orange = "{{color11 | darken(0.2)}}"
+green = "{{color2 | darken(0.2)}}"
+cyan = "{{color6 | darken(0.2)}}"
+blue = "{{color4 | darken(0.2)}}"
+magenta = "{{color5 | darken(0.2)}}"
+brown = "{{color3 | darken(0.2)}}"
+bright_red = "{{color9 | darken(0.2)}}"
+bright_yellow = "{{color11 | darken(0.2)}}"
+bright_green = "{{color10 | darken(0.2)}}"
+bright_cyan = "{{color14 | darken(0.2)}}"
+bright_blue = "{{color12 | darken(0.2)}}"
+bright_magenta = "{{color13 | darken(0.2)}}"
+{% else %}
 dark_foreground = "{{color8}}"
 light_foreground = "{{color7}}"
 bright_foreground = "{{color15}}"
@@ -462,7 +492,10 @@ bright_green = "{{color10}}"
 bright_cyan = "{{color14}}"
 bright_blue = "{{color12}}"
 bright_magenta = "{{color13}}"
+{% endif %}
 '''
+        mode = mode if mode in {"dark", "light"} else "dark"
+        template = template.replace("__WALLHAVEN_MODE__", mode)
         (cfg / "wallust" / "templates" / "omarchy-colors.toml").write_text(template)
         (cfg / "wallust" / "wallust.toml").write_text(
             '[templates]\nomarchy = { src = "omarchy-colors.toml", dst = "' +
@@ -470,13 +503,41 @@ bright_magenta = "{{color13}}"
         )
         env = os.environ.copy()
         env["XDG_CONFIG_HOME"] = str(cfg)
-        result = subprocess.run([wallust, "run", str(image)], env=env, text=True,
+        command = [wallust, "run", "--palette", mode]
+        if mode == "light":
+            # Wallust can adjust ANSI colors for contrast with the light background.
+            command.append("--check-contrast")
+        command.append(str(image))
+        result = subprocess.run(command, env=env, text=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
         colors = Path(outdir) / "colors.toml"
         if result.returncode or not colors.is_file():
             raise RuntimeError(result.stderr.strip() or "wallust did not create colors.toml")
     finally:
         shutil.rmtree(cfg, ignore_errors=True)
+
+
+def ensure_theme_palette_mode(theme, mode):
+    """Regenerate colors.toml from the active wallpaper when mode changes."""
+    colors_file = Path(theme) / "colors.toml"
+    try:
+        colors_text = colors_file.read_text(encoding="utf-8")
+    except OSError:
+        colors_text = ""
+    match = re.search(r'^\s*mode\s*=\s*"(dark|light)"', colors_text, re.MULTILINE)
+    if match and match.group(1) == mode:
+        return
+
+    backgrounds = (Path(theme) / "backgrounds").resolve()
+    current_background = (HOME / ".local/state/omarchy/current/background").resolve()
+    if not current_background.is_file() or not current_background.is_relative_to(backgrounds):
+        allowed = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+        candidates = sorted(path for path in backgrounds.iterdir()
+                            if path.is_file() and path.suffix.lower() in allowed)
+        if not candidates:
+            raise RuntimeError("No wallpaper found to regenerate the selected color mode")
+        current_background = candidates[0]
+    wallust_colors(current_background, theme, mode)
 
 
 def write_theme_styling(theme_dir, colors_file, settings):
@@ -550,7 +611,7 @@ o.window({{ tag = "default-opacity" }}, {{ opacity = "{window_active_opacity:.2f
 {animation_config_lua(settings["animationPreset"])}
 '''
     atomic_write(Path(theme_dir) / "hyprland.lua", lua)
-    write_terminal_theme_files(theme_dir, colors_file, settings["terminalOpacity"])
+    write_terminal_theme_files(theme_dir, colors_file, settings["terminalOpacity"], settings["themeMode"])
 
     background = palette_color("background", "#1a1b26")
     alpha = f'{settings["shellOpacity"]:.2f}'
@@ -607,6 +668,7 @@ def apply_theme_settings(settings_json):
     if not (theme / ".wallhaven-picker-managed").is_file():
         return {"settings": state["themeSettings"], "applied": False}
 
+    ensure_theme_palette_mode(theme, settings["themeMode"])
     write_theme_styling(theme, theme / "colors.toml", settings)
     current_theme_file = HOME / ".local/state/omarchy/current/theme.name"
     try:
@@ -638,6 +700,7 @@ def remove_theme_style_overrides(theme):
 def reset_theme_settings():
     """Delete generated overrides so Omarchy's base theme values take effect."""
     settings = dict(THEME_SETTINGS_DEFAULTS)
+    settings["themeMode"] = load_state().get("themeSettings", {}).get("themeMode", "dark")
     state = save_state(theme_settings=settings)
     try:
         ui_config = json.loads(UI_SETTINGS_FILE.read_text(encoding="utf-8"))
@@ -654,6 +717,7 @@ def reset_theme_settings():
     theme = THEMES / "wallhaven-picker"
     if not (theme / ".wallhaven-picker-managed").is_file():
         return {"settings": state["themeSettings"], "applied": False, "reset": True}
+    ensure_theme_palette_mode(theme, settings["themeMode"])
     remove_theme_style_overrides(theme)
     current_theme_file = HOME / ".local/state/omarchy/current/theme.name"
     try:
@@ -689,8 +753,8 @@ def apply_wallpaper_theme(image):
         staged_backgrounds.mkdir()
         staged_image = staged_backgrounds / image.name
         shutil.copy2(image, staged_image)
-        wallust_colors(staged_image, staging)
         theme_settings = load_state().get("themeSettings")
+        wallust_colors(staged_image, staging, theme_settings.get("themeMode", "dark"))
         if theme_settings.get("useThemeOverrides", True):
             write_theme_styling(staging, staging / "colors.toml", theme_settings)
         (staging / marker_name).write_text("Managed by abhijeet.wallpaper-picker\n", encoding="utf-8")

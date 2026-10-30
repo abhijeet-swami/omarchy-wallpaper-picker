@@ -16,7 +16,9 @@ Ui.BorderSurface {
 
     radius: Style.cornerRadius
     color: controller.surfaceColor
-    borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, Math.max(1, Style.space(1)))
+    // Cards need a closed outline even if the active shell theme configures
+    // only selected menu-border sides. Keep the themed color, use one width.
+    borderSpec: Border.flat(controller.borderColor, Math.max(1, Style.space(1)))
     implicitWidth: sectionContent.implicitWidth + Style.spacing.panelPadding * 2
     implicitHeight: sectionContent.implicitHeight + root.verticalPadding * 2
 

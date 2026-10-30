@@ -44,6 +44,8 @@ Item {
         blurEnabled: false,
         blurSize: 8,
         blurPasses: 1,
+        noiseEnabled: false,
+        noiseStrength: 0.0117,
         rounding: 0,
         borderWidth: 2,
         shadowEnabled: false,
@@ -51,6 +53,7 @@ Item {
         inactiveOpacity: 1.0,
         sameWindowOpacity: false,
         terminalOpacity: 1.0,
+        themeMode: "dark",
         shellOpacity: 1.0,
         animationPreset: "fluid",
         useThemeOverrides: false
@@ -59,6 +62,8 @@ Item {
         blurEnabled: false,
         blurSize: 8,
         blurPasses: 1,
+        noiseEnabled: false,
+        noiseStrength: 0.0117,
         rounding: 0,
         borderWidth: 2,
         shadowEnabled: false,
@@ -66,6 +71,7 @@ Item {
         inactiveOpacity: 1.0,
         sameWindowOpacity: false,
         terminalOpacity: 1.0,
+        themeMode: "dark",
         shellOpacity: 1.0,
         animationPreset: "fluid",
         useThemeOverrides: false
@@ -222,6 +228,11 @@ Item {
         var updated = ({})
         for (var key in root.themeSettings) updated[key] = root.themeSettings[key]
         updated[name] = value
+        if (name === "themeMode" && value === "light") {
+            updated.inactiveOpacity = 1.0
+            updated.terminalOpacity = 1.0
+            updated.shellOpacity = 1.0
+        }
         updated.useThemeOverrides = true
         root.themeSettings = updated
         if (name === "blurEnabled") root.uiBackgroundBlur = value
@@ -241,6 +252,7 @@ Item {
     function resetThemeSettings() {
         var reset = ({})
         for (var key in root.defaultThemeSettings) reset[key] = root.defaultThemeSettings[key]
+        reset.themeMode = root.themeSettings.themeMode || root.defaultThemeSettings.themeMode
         root.themeSettings = reset
         root.uiBackgroundBlur = reset.blurEnabled
         settingsApplier.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "reset-settings"]
@@ -736,9 +748,9 @@ Item {
 
             Ui.BorderSurface {
                 id: dock
-                width: Math.min(parent.width - Style.gapsOut * 2, Style.space(1120))
+                width: Math.min(parent.width - Style.gapsOut * 2, Style.space(1280))
                 height: root.settingsMode
-                    ? Math.min(parent.height - Style.gapsOut * 2, Style.space(500))
+                    ? Math.min(parent.height - Style.gapsOut * 2, Style.space(600))
                     : Style.space(250)
                 Behavior on height {
                     NumberAnimation { duration: 220; easing.type: Easing.OutCubic }

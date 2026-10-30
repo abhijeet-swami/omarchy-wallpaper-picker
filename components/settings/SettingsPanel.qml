@@ -62,14 +62,16 @@ Item {
         Layout.fillHeight: true
         clip: true
         contentWidth: width
-        contentHeight: settingsGrid.implicitHeight
+        contentHeight: settingsGrid.implicitHeight + Style.spacing.xs * 2
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
         GridLayout {
             id: settingsGrid
-            width: settingsScroll.width
+            x: Style.spacing.xs
+            y: Style.spacing.xs
+            width: settingsScroll.width - Style.spacing.xs * 2
             columns: width >= Style.space(760) ? 2 : 1
             columnSpacing: Style.spacing.md
             rowSpacing: Style.spacing.md
@@ -80,7 +82,7 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 Layout.minimumWidth: 0
                 Layout.preferredWidth: settingsGrid.columns === 2
-                    ? (settingsGrid.width - settingsGrid.columnSpacing) / 3 : settingsGrid.width
+                    ? (settingsGrid.width - settingsGrid.columnSpacing) / 2 : settingsGrid.width
                 Layout.maximumWidth: Layout.preferredWidth
                 spacing: Style.spacing.md
 
@@ -159,6 +161,27 @@ Item {
                                 minimum: 65; maximum: 100; step: 1; integer: true
                                 onMoved: controller.setThemeSetting("terminalOpacity", value / 100)
                             }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Style.spacing.hairline
+                                color: controller.borderColor
+                                opacity: 0.6
+                            }
+                            Ui.PanelSectionHeader {
+                                Layout.fillWidth: true
+                                text: "OMARCHY SHELL"
+                                foreground: controller.mutedColor
+                            }
+                            SettingComponents.SettingsSlider {
+                                Layout.fillWidth: true
+                                controller: settingsPanel.controller
+                                label: "Shell background opacity"
+                                suffix: "%"
+                                value: Math.round(controller.themeSettings.shellOpacity * 100)
+                                minimum: 10; maximum: 100; step: 1; integer: true
+                                onMoved: controller.setThemeSetting("shellOpacity", value / 100)
+                            }
                         }
             }
 
@@ -168,7 +191,7 @@ Item {
                 Layout.alignment: Qt.AlignTop
                 Layout.minimumWidth: 0
                 Layout.preferredWidth: settingsGrid.columns === 2
-                    ? 2 * (settingsGrid.width - settingsGrid.columnSpacing) / 3 : settingsGrid.width
+                    ? (settingsGrid.width - settingsGrid.columnSpacing) / 2 : settingsGrid.width
                 Layout.maximumWidth: Layout.preferredWidth
                 spacing: Style.spacing.md
 
@@ -244,38 +267,73 @@ Item {
                             }
                         }
 
-                        SettingComponents.SettingsCard {
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignTop
-                            controller: settingsPanel.controller
-                            showTitle: false
-                            verticalPadding: Style.space(14)
+                            spacing: Style.spacing.md
 
-                            RowLayout {
+                            SettingComponents.SettingsCard {
                                 Layout.fillWidth: true
-                                spacing: Style.spacing.md
+                                Layout.alignment: Qt.AlignTop
+                                controller: settingsPanel.controller
+                                showTitle: false
+                                verticalPadding: Style.space(14)
 
-                                Ui.PanelSectionHeader {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: "MOTION"
-                                    foreground: controller.textColor
+                                    spacing: Style.spacing.md
+                                    Ui.PanelSectionHeader {
+                                        Layout.fillWidth: true
+                                        text: "MOTION"
+                                        foreground: controller.textColor
+                                    }
+                                    SettingComponents.MotionDropdown {
+                                        id: motionDropdown
+                                        Layout.preferredWidth: Style.space(200)
+                                        Layout.minimumWidth: Style.space(140)
+                                        Layout.maximumWidth: Style.space(240)
+                                        controller: settingsPanel.controller
+                                        value: controller.themeSettings.animationPreset
+                                        options: [
+                                            { value: "fast", label: "Fast" },
+                                            { value: "fluid", label: "Fluid" },
+                                            { value: "smooth", label: "Smooth" },
+                                            { value: "vertical", label: "Vertical" },
+                                            { value: "none", label: "No animation" }
+                                        ]
+                                        onChanged: controller.setThemeSetting("animationPreset", value)
+                                    }
                                 }
+                            }
 
-                                SettingComponents.MotionDropdown {
-                                    id: motionDropdown
-                                    Layout.preferredWidth: Style.space(200)
-                                    Layout.minimumWidth: Style.space(160)
-                                    Layout.maximumWidth: Style.space(240)
-                                    controller: settingsPanel.controller
-                                    value: controller.themeSettings.animationPreset
-                                    options: [
-                                        { value: "fast", label: "Fast" },
-                                        { value: "fluid", label: "Fluid" },
-                                        { value: "smooth", label: "Smooth" },
-                                        { value: "vertical", label: "Vertical" },
-                                        { value: "none", label: "No animation" }
-                                    ]
-                                    onChanged: controller.setThemeSetting("animationPreset", value)
+                            SettingComponents.SettingsCard {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignTop
+                                controller: settingsPanel.controller
+                                showTitle: false
+                                verticalPadding: Style.space(14)
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Style.spacing.sm
+                                    Ui.PanelSectionHeader {
+                                        Layout.fillWidth: true
+                                        text: "THEME MODE"
+                                        foreground: controller.textColor
+                                    }
+                                    Ui.Button {
+                                        Layout.preferredWidth: Style.space(68)
+                                        text: "Dark"
+                                        selected: controller.themeSettings.themeMode === "dark"
+                                        bordered: true
+                                        onClicked: controller.setThemeSetting("themeMode", "dark")
+                                    }
+                                    Ui.Button {
+                                        Layout.preferredWidth: Style.space(68)
+                                        text: "Light"
+                                        selected: controller.themeSettings.themeMode === "light"
+                                        bordered: true
+                                        onClicked: controller.setThemeSetting("themeMode", "light")
+                                    }
                                 }
                             }
                         }
@@ -289,7 +347,9 @@ Item {
         spacing: Style.spacing.sm
         Text {
             Layout.fillWidth: true
-            text: "Changes apply to your active Omarchy theme."
+            text: controller.themeSettings.themeMode === "light"
+                ? "Light mode starts at 100% opacity; adjust it and Apply afterward."
+                : "Changes apply to your active Omarchy theme."
             color: controller.mutedColor
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
