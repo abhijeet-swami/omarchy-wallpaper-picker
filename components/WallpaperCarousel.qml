@@ -15,7 +15,7 @@ Item {
     Layout.fillHeight: true
     clip: true
     focus: true
-    property real itemStep: 190
+    property real itemStep: Style.space(190)
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: function(event) {
@@ -71,10 +71,10 @@ Item {
 
             Rectangle {
                 id: card
-                width: wallpaperDelegate.selected ? 224 : 176
-                height: wallpaperDelegate.selected ? 128 : 98
+                width: wallpaperDelegate.selected ? Style.space(224) : Style.space(176)
+                height: wallpaperDelegate.selected ? Style.space(128) : Style.space(98)
                 anchors.horizontalCenter: parent.horizontalCenter
-                y: wallpaperDelegate.selected ? 1 : 29
+                y: wallpaperDelegate.selected ? Style.space(1) : Style.space(29)
                 radius: Math.min(controller.uiCornerRadius, height / 2)
                 color: controller.surfaceColor
                 clip: true
@@ -160,15 +160,15 @@ Item {
         id: pageIndicator
         anchors.top: parent.top
         anchors.right: parent.right
-        anchors.topMargin: 10
-        anchors.rightMargin: 18
+        anchors.topMargin: Style.spacing.md
+        anchors.rightMargin: Style.spacing.panelPadding
         z: 1000
         text: controller.localMode
             ? String(controller.wallpapers.length) + " WALLPAPERS"
             : "PAGE " + controller.page + " / " + controller.lastPage
         color: controller.mutedColor
-        font.pixelSize: 11
-        font.family: "monospace"
+        font.pixelSize: Style.font.caption
+        font.family: Style.font.family
         font.letterSpacing: 0.4
     }
 

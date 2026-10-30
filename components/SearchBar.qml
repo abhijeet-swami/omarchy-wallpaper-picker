@@ -3,25 +3,28 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import qs.Commons
 import qs.Commons as Commons
+import qs.Ui as Ui
 
-Rectangle {
+Ui.BorderSurface {
     id: searchBar
     required property var controller
     property alias searchInput: searchField
     property alias pageInput: pageField
     visible: !controller.settingsMode
     Layout.fillWidth: true
-    Layout.preferredHeight: 48
+    Layout.preferredHeight: Math.max(Style.space(48), Style.spacing.controlHeight + Style.space(16))
     radius: Math.min(controller.uiCornerRadius, height / 2)
-    color: Qt.darker(controller.surfaceColor, 1.08)
-    border.color: controller.searchMode || controller.pageMode ? controller.accentColor : controller.borderColor
-    border.width: controller.uiBorderWidth
+    color: controller.surfaceColor
+    borderSpec: controller.uiBorderWidth <= 0 ? Border.none()
+        : (controller.searchMode || controller.pageMode
+            ? Border.surfaceSpec("menu", "selected-border", controller.accentColor, controller.uiBorderWidth)
+            : Border.surfaceSpec("menu", "border", controller.borderColor, controller.uiBorderWidth))
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 14
-        anchors.rightMargin: 14
-        spacing: 12
+        anchors.leftMargin: Style.spacing.controlPaddingX
+        anchors.rightMargin: Style.spacing.controlPaddingX
+        spacing: Style.spacing.controlGap
 
         Item {
             Layout.preferredWidth: 22
@@ -57,6 +60,7 @@ Rectangle {
             selectedTextColor: controller.textColor
             background: Item {}
             font.pixelSize: 14
+            font.family: Style.font.family
             onActiveFocusChanged: if (activeFocus) {
                 controller.searchMode = true
                 controller.pageMode = false
@@ -98,6 +102,7 @@ Rectangle {
             inputMethodHints: Qt.ImhDigitsOnly
             validator: IntValidator { bottom: 1; top: 999999 }
             font.pixelSize: 14
+            font.family: Style.font.family
             onAccepted: {
                 var target = Number(text)
                 controller.pageMode = false
@@ -107,49 +112,38 @@ Rectangle {
             }
         }
 
-        Text {
-            visible: !controller.query.trim() && !controller.localMode
-            text: controller.sortLabel(controller.sortMode)
-            color: controller.accentColor
-            font.pixelSize: 11
-            font.weight: Font.DemiBold
-            font.letterSpacing: 0.6
-            MouseArea {
-                anchors.fill: parent
+        RowLayout {
+            spacing: Style.spacing.xxs
+            Ui.Button {
+                text: "LOCAL"
+                fontSize: Style.font.caption
+                horizontalPadding: Style.spacing.controlPaddingX
+                verticalPadding: Style.spacing.xs
+                selected: controller.localMode
                 enabled: !controller.busy
-                cursorShape: Qt.PointingHandCursor
-                onClicked: controller.cycleSortMode()
+                onClicked: controller.switchMode(true)
+            }
+            Ui.Button {
+                text: "WALLHAVEN"
+                fontSize: Style.font.caption
+                horizontalPadding: Style.spacing.controlPaddingX
+                verticalPadding: Style.spacing.xs
+                selected: !controller.localMode
+                enabled: !controller.busy
+                onClicked: controller.switchMode(false)
             }
         }
-        Text {
-            visible: controller.localMode && !controller.query.trim()
-            text: "LOCAL WALLPAPERS"
-            color: controller.accentColor
-            font.pixelSize: 11
-            font.weight: Font.DemiBold
-            font.letterSpacing: 0.6
-        }
-        Text {
-            visible: !!controller.query.trim() && !controller.localMode
-            text: controller.querySortMode === "relevance" ? "RELEVANCE" : "TOP RESULTS"
-            color: controller.querySortMode === "relevance" ? controller.mutedColor : controller.accentColor
-            font.pixelSize: 11
-            font.weight: Font.DemiBold
-            font.letterSpacing: 0.6
-            MouseArea {
-                anchors.fill: parent
-                enabled: !controller.busy
-                cursorShape: Qt.PointingHandCursor
-                onClicked: controller.cycleSortMode()
-            }
-        }
-        Text {
-            visible: controller.localMode && !!controller.query.trim()
-            text: "LOCAL SEARCH"
-            color: controller.mutedColor
-            font.pixelSize: 11
-            font.weight: Font.DemiBold
-            font.letterSpacing: 0.6
+        Ui.Button {
+            visible: !controller.localMode
+            text: controller.query.trim()
+                ? (controller.querySortMode === "relevance" ? "RELEVANCE" : "TOP RESULTS")
+                : controller.sortLabel(controller.sortMode)
+            fontSize: Style.font.caption
+            horizontalPadding: Style.spacing.controlPaddingX
+            verticalPadding: Style.spacing.xs
+            selected: true
+            enabled: !controller.busy
+            onClicked: controller.cycleSortMode()
         }
 
         Text {
@@ -173,8 +167,8 @@ Rectangle {
                 ? String(controller.selectedIndex + 1).padStart(2, "0") + " / " + String(controller.wallpapers.length).padStart(2, "0")
                 : (controller.busy ? "…" : "00 / 00")
             color: controller.textColor
-            font.pixelSize: 12
-            font.family: "monospace"
+            font.pixelSize: Style.font.bodySmall
+            font.family: Style.font.family
         }
     }
 }

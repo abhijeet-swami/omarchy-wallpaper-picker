@@ -7,7 +7,9 @@ import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
+import qs.Ui as Ui
 import "components" as PickerComponents
+import "components/settings" as PickerSettings
 
 Item {
     id: root
@@ -34,7 +36,7 @@ Item {
     property string pendingSortModeWrite: ""
     property var localThumbnailAttempts: ({})
     property var activeLocalThumbPaths: []
-    property int uiCornerRadius: 0
+    readonly property int uiCornerRadius: Style.cornerRadius
     property real uiBorderWidth: 2
     property int bottomOffset: 0
     property bool uiBackgroundBlur: false
@@ -47,8 +49,8 @@ Item {
         shadowEnabled: false,
         shadowRange: 4,
         inactiveOpacity: 1.0,
+        sameWindowOpacity: false,
         terminalOpacity: 1.0,
-        terminalSameOpacity: false,
         shellOpacity: 1.0,
         animationPreset: "fluid",
         useThemeOverrides: false
@@ -62,8 +64,8 @@ Item {
         shadowEnabled: false,
         shadowRange: 4,
         inactiveOpacity: 1.0,
+        sameWindowOpacity: false,
         terminalOpacity: 1.0,
-        terminalSameOpacity: false,
         shellOpacity: 1.0,
         animationPreset: "fluid",
         useThemeOverrides: false
@@ -92,7 +94,6 @@ Item {
     readonly property color unselectedBorderColor: Commons.Color.imagePicker.unselectedBorder
 
     onThemeSettingsChanged: {
-        root.uiCornerRadius = Math.max(0, Number(root.themeSettings.rounding || 0))
         root.uiBorderWidth = Math.max(0, Number(root.themeSettings.borderWidth !== undefined ? root.themeSettings.borderWidth : 2))
     }
 
@@ -224,7 +225,6 @@ Item {
         updated.useThemeOverrides = true
         root.themeSettings = updated
         if (name === "blurEnabled") root.uiBackgroundBlur = value
-        if (name === "rounding") root.uiCornerRadius = value
         root.settingsMessage = ""
     }
 
@@ -242,7 +242,6 @@ Item {
         var reset = ({})
         for (var key in root.defaultThemeSettings) reset[key] = root.defaultThemeSettings[key]
         root.themeSettings = reset
-        root.uiCornerRadius = reset.rounding
         root.uiBackgroundBlur = reset.blurEnabled
         settingsApplier.command = ["python3", Qt.resolvedUrl("wallpaper.py").toString().replace("file://", ""), "reset-settings"]
         settingsApplier.running = true
@@ -735,26 +734,32 @@ Item {
             anchors.fill: parent
             color: "transparent"
 
-            Rectangle {
+            Ui.BorderSurface {
                 id: dock
-                width: Math.min(parent.width - 32, 1060)
-                height: 246
+                width: Math.min(parent.width - Style.gapsOut * 2, Style.space(1120))
+                height: root.settingsMode
+                    ? Math.min(parent.height - Style.gapsOut * 2, Style.space(500))
+                    : Style.space(250)
+                Behavior on height {
+                    NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                }
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: root.bottomOffset
                 radius: Math.min(root.uiCornerRadius, height / 2)
                 color: root.surfaceColor
-                border.color: root.borderColor
-                border.width: root.uiBorderWidth
+                borderSpec: root.uiBorderWidth > 0
+                    ? Border.surfaceSpec("menu", "border", root.borderColor, root.uiBorderWidth)
+                    : Border.none()
                 clip: true
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 18
-                    anchors.rightMargin: 18
-                    anchors.topMargin: 8
-                    anchors.bottomMargin: 8
-                    spacing: 4
+                    anchors.leftMargin: Style.spacing.panelPadding
+                    anchors.rightMargin: Style.spacing.panelPadding
+                    anchors.topMargin: Style.spacing.md
+                    anchors.bottomMargin: Style.spacing.md
+                    spacing: Style.spacing.sm
 
                     PickerComponents.LocalWallpaperGallery {
                         id: localGallery
@@ -772,7 +777,7 @@ Item {
                         controller: root
                     }
 
-                    PickerComponents.SettingsPanel {
+                    PickerSettings.SettingsPanel {
                         id: settingsPanelComponent
                         visible: root.settingsMode
                         Layout.fillWidth: true

@@ -33,13 +33,15 @@ THEME_SETTINGS_DEFAULTS = {
     "blurEnabled": False,
     "blurSize": 8,
     "blurPasses": 1,
+    "noiseEnabled": False,
+    "noiseStrength": 0.0117,
     "rounding": 0,
     "borderWidth": 2,
     "shadowEnabled": False,
     "shadowRange": 4,
     "inactiveOpacity": 1.0,
+    "sameWindowOpacity": False,
     "terminalOpacity": 1.0,
-    "terminalSameOpacity": False,
     "shellOpacity": 1.0,
     "animationPreset": "fluid",
     "useThemeOverrides": False,
@@ -85,8 +87,9 @@ def normalize_theme_settings(settings, defaults=None):
     defaults = defaults or THEME_SETTINGS_DEFAULTS
     normalized = {
         "blurEnabled": settings.get("blurEnabled", defaults["blurEnabled"]) is True,
+        "noiseEnabled": settings.get("noiseEnabled", defaults["noiseEnabled"]) is True,
         "shadowEnabled": settings.get("shadowEnabled", defaults["shadowEnabled"]) is True,
-        "terminalSameOpacity": settings.get("terminalSameOpacity", defaults["terminalSameOpacity"]) is True,
+        "sameWindowOpacity": settings.get("sameWindowOpacity", defaults["sameWindowOpacity"]) is True,
         # Existing state files had no override flag. Keep those user's styles
         # until they explicitly choose Reset to defaults.
         "useThemeOverrides": settings.get("useThemeOverrides", bool(settings)),
@@ -94,6 +97,7 @@ def normalize_theme_settings(settings, defaults=None):
     bounds = {
         "blurSize": (1, 20, int),
         "blurPasses": (1, 6, int),
+        "noiseStrength": (0.0, 1.0, float),
         "rounding": (0, 40, int),
         "borderWidth": (0, 20, int),
         "shadowRange": (0, 40, int),
@@ -108,10 +112,10 @@ def normalize_theme_settings(settings, defaults=None):
             normalized[key] = defaults[key]
     try:
         normalized["terminalOpacity"] = max(
-            0.65, min(1.0, float(settings.get("terminalOpacity", normalized["inactiveOpacity"])))
+            0.65, min(1.0, float(settings.get("terminalOpacity", defaults["terminalOpacity"])))
         )
     except (ValueError, TypeError, OverflowError):
-        normalized["terminalOpacity"] = normalized["inactiveOpacity"]
+        normalized["terminalOpacity"] = defaults["terminalOpacity"]
     normalized["useThemeOverrides"] = normalized["useThemeOverrides"] is True
     animation_preset = settings.get("animationPreset", defaults["animationPreset"])
     normalized["animationPreset"] = animation_preset if animation_preset in {
@@ -360,6 +364,69 @@ def safe_slug(value):
     return slug or "wallhaven-theme"
 
 
+def write_terminal_theme_files(theme_dir, colors_file, opacity):
+    """Generate Omarchy's per-theme terminal colors and background alpha."""
+    try:
+        colors_text = Path(colors_file).read_text(encoding="utf-8")
+    except OSError:
+        colors_text = ""
+
+    def color(name, fallback):
+        match = re.search(rf"^\s*{re.escape(name)}\s*=\s*['\"]([^'\"]+)['\"]", colors_text, re.MULTILINE)
+        return match.group(1) if match else fallback
+
+    background = color("background", "#1a1b26")
+    foreground = color("foreground", "#c0caf5")
+    bright_foreground = color("bright_foreground", foreground)
+    muted = color("muted", "#565f89")
+    selection = color("selection", muted)
+    selection_foreground = color("selection_foreground", foreground)
+    accent = color("accent", "#7aa2f7")
+    purple = color("purple", color("magenta", "#bb9af7"))
+    palette_names = (
+        "background", "red", "green", "yellow", "blue", "magenta", "cyan", "foreground",
+        "muted", "bright_red", "bright_green", "bright_yellow", "bright_blue", "bright_magenta",
+        "bright_cyan", "bright_foreground",
+    )
+    fallback_palette = (
+        background, "#f7768e", "#9ece6a", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", foreground,
+        muted, "#ff7a93", "#b9f27c", "#ff9e64", "#7da6ff", "#c0a0ff", "#89ddff", bright_foreground,
+    )
+    palette = [color(name, fallback) for name, fallback in zip(palette_names, fallback_palette)]
+    hex_values = [entry.lstrip("#") for entry in palette]
+
+    kitty_lines = [
+        f"foreground {foreground}", f"background {background}",
+        f"background_opacity {opacity:.2f}",
+        f"selection_foreground {selection_foreground}", f"selection_background {selection}",
+        f"cursor {bright_foreground}", f"cursor_text_color {background}",
+        f"active_border_color {accent}", f"active_tab_background {accent}",
+    ]
+    kitty_lines.extend(f"color{index} {value}" for index, value in enumerate(palette))
+    atomic_write(Path(theme_dir) / "kitty.conf", "\n".join(kitty_lines) + "\n")
+
+    foot_lines = [
+        "[colors-dark]", f"foreground={foreground.lstrip('#')}",
+        f"background={background.lstrip('#')}", f"alpha={opacity:.2f}",
+        f"selection-foreground={selection_foreground.lstrip('#')}",
+        f"selection-background={selection.lstrip('#')}",
+        f"cursor={background.lstrip('#')} {bright_foreground.lstrip('#')}",
+    ]
+    foot_lines.extend(f"regular{index}={hex_values[index]}" for index in range(8))
+    foot_lines.extend(f"bright{index}={hex_values[index + 8]}" for index in range(8))
+    # Foot calls the fifth ANSI color purple; Wallust names that slot magenta.
+    foot_lines[foot_lines.index(f"regular5={hex_values[5]}")] = f"regular5={purple.lstrip('#')}"
+    atomic_write(Path(theme_dir) / "foot.ini", "\n".join(foot_lines) + "\n")
+
+    ghostty_lines = [
+        f"background = {background}", f"foreground = {foreground}",
+        f"background-opacity = {opacity:.2f}", f"cursor-color = {bright_foreground}",
+        f"selection-background = {selection}", f"selection-foreground = {selection_foreground}",
+    ]
+    ghostty_lines.extend(f"palette = {index}={value}" for index, value in enumerate(palette))
+    atomic_write(Path(theme_dir) / "ghostty.conf", "\n".join(ghostty_lines) + "\n")
+
+
 def wallust_colors(image, outdir):
     wallust = shutil.which("wallust")
     if not wallust:
@@ -430,10 +497,7 @@ def write_theme_styling(theme_dir, colors_file, settings):
             value = fallback
         return value.lstrip("#")[:6].upper()
 
-    terminal_active_opacity = settings["terminalOpacity"] if settings["terminalSameOpacity"] else 1.0
-    terminal_opacity_rule = (
-        f'{terminal_active_opacity:.2f} override {settings["terminalOpacity"]:.2f} override'
-    )
+    window_active_opacity = settings["inactiveOpacity"] if settings["sameWindowOpacity"] else 1.0
     active_border = hypr_rgb("accent", "#FFFFFF")
     active_border_secondary = hypr_rgb("bright_blue", "#FFFFFF")
     inactive_border = hypr_rgb("muted", "#808080")
@@ -464,6 +528,7 @@ hl.config({{
       enabled = {str(settings["blurEnabled"]).lower()},
       size = {settings["blurSize"]},
       passes = {settings["blurPasses"]},
+      noise = {settings["noiseStrength"] if settings["noiseEnabled"] else 0.0:.4f},
       new_optimizations = true,
       ignore_opacity = true,
       xray = false,
@@ -480,15 +545,12 @@ hl.layer_rule({{ match = {{ namespace = "omarchy-bar" }}, blur = true, blur_popu
 hl.layer_rule({{ match = {{ namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-polkit|omarchy-reminders|omarchy-network-qr)$" }}, blur = true, ignore_alpha = 0.3 }})
 
 -- Match the glass window treatment used by blur-theme for Omarchy windows.
-o.window({{ tag = "default-opacity" }}, {{ opacity = "1 {settings["inactiveOpacity"]:.2f}" }})
-
--- Kitty, Foot, and Ghostty use exact active/inactive values so the global
--- default-opacity rule does not multiply their requested opacity.
-o.window({{ class = "^(kitty|foot|com[.]mitchellh[.]ghostty)$" }}, {{ opacity = "{terminal_opacity_rule}" }})
+o.window({{ tag = "default-opacity" }}, {{ opacity = "{window_active_opacity:.2f} {settings["inactiveOpacity"]:.2f}" }})
 
 {animation_config_lua(settings["animationPreset"])}
 '''
     atomic_write(Path(theme_dir) / "hyprland.lua", lua)
+    write_terminal_theme_files(theme_dir, colors_file, settings["terminalOpacity"])
 
     background = palette_color("background", "#1a1b26")
     alpha = f'{settings["shellOpacity"]:.2f}'
@@ -562,7 +624,7 @@ def apply_theme_settings(settings_json):
 
 def remove_theme_style_overrides(theme):
     style_files = (
-        "hyprland.lua", "shell.toml", "shell.bar.toml", "shell.popups.toml",
+        "hyprland.lua", "kitty.conf", "foot.ini", "ghostty.conf", "shell.toml", "shell.bar.toml", "shell.popups.toml",
         "shell.notifications.toml", "shell.launcher.toml", "shell.menu.toml",
         "shell.tooltip.toml", "shell.image-picker.toml",
     )
